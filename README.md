@@ -41,3 +41,66 @@ Equal Experts
 __________________________________________
 [^1]: For example Go, Python or Ruby but not Bash or Powershell.  
 [^2]: https://docs.github.com/en/rest/gists/gists?apiVersion=2022-11-28
+
+## Solution
+
+This FastAPI service returns public Gists from GitHub for a username:
+
+```http
+GET /<username>
+```
+
+It forwards optional `page` and `per_page` query parameters to GitHub (`page`
+defaults to `1`; `per_page` defaults to `30` and is limited to `100`). A missing
+GitHub user returns `404`; GitHub connectivity, upstream, or response-format
+errors return a gateway error.
+
+### Run locally
+
+Install [uv](https://docs.astral.sh/uv/), then sync the project and test
+dependencies:
+
+```sh
+uv sync --extra test
+uv run python -m app.main
+```
+
+The project requires Python 3.11 or newer; uv can manage the interpreter if
+needed.
+The service listens on `http://localhost:8080`. Try
+`curl 'http://localhost:8080/octocat'`.
+
+Configuration is supplied through environment variables; no `.env` file is
+required:
+
+| Variable | Default | Description |
+|---|---|---|
+| `GITHUB_API_URL` | `https://api.github.com` | GitHub API base URL |
+| `GITHUB_TOKEN` | unset | Optional token for authenticated API rate limits |
+| `REQUEST_TIMEOUT_SECONDS` | `5` | Timeout for a GitHub API request |
+| `HOST` | `0.0.0.0` | Address on which the service listens |
+| `PORT` | `8080` | Listening port |
+
+### Run tests
+
+```sh
+uv run pytest
+```
+
+Tests use a mocked GitHub API and do not require network access or credentials.
+
+### Build and run the container
+
+The image uses Python 3.14 on Alpine Linux 3.23 and a pinned `uv` 0.13.7
+builder image.
+
+```sh
+docker build -t public-gists-api .
+docker run --rm -p 8080:8080 public-gists-api
+```
+
+To pass an optional GitHub token without adding it to the image:
+
+```sh
+docker run --rm -p 8080:8080 -e GITHUB_TOKEN="$GITHUB_TOKEN" public-gists-api
+```
