@@ -55,6 +55,11 @@ defaults to `1`; `per_page` defaults to `30` and is limited to `100`). A missing
 GitHub user returns `404`; GitHub connectivity, upstream, or response-format
 errors return a gateway error.
 
+Successful Gists responses are cached in memory for 60 seconds by default,
+separately for each username and pagination combination. The cache is bounded
+to 1,000 entries per application process and is cleared when the process
+restarts. Set `CACHE_TTL_SECONDS=0` to disable caching.
+
 ### Run locally
 
 Install [uv](https://docs.astral.sh/uv/), then sync the project and test
@@ -78,6 +83,8 @@ required:
 | `GITHUB_API_URL` | `https://api.github.com` | GitHub API base URL |
 | `GITHUB_TOKEN` | unset | Optional token for authenticated API rate limits |
 | `REQUEST_TIMEOUT_SECONDS` | `5` | Timeout for a GitHub API request |
+| `CACHE_TTL_SECONDS` | `60` | Cache lifetime in seconds; `0` disables caching |
+| `CACHE_MAX_ENTRIES` | `1000` | Maximum number of cached responses per process |
 | `HOST` | `0.0.0.0` | Address on which the service listens |
 | `PORT` | `8080` | Listening port |
 

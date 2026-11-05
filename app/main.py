@@ -1,4 +1,6 @@
+from collections import OrderedDict
 from contextlib import asynccontextmanager
+from time import monotonic
 from typing import Annotated, Any
 
 import httpx2
@@ -8,6 +10,7 @@ from fastapi import FastAPI, HTTPException, Path, Query, Request
 from app.config import Settings
 
 GITHUB_USERNAME_PATTERN = r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
+GistCache = OrderedDict[tuple[str, int, int], tuple[float, list[dict[str, Any]]]]
 
 
 def create_app(
@@ -23,6 +26,7 @@ def create_app(
     if configured_settings.github_token:
         headers["Authorization"] = f"Bearer {configured_settings.github_token}"
 
+    # Create one shared GitHub client at startup and close it automatically at shutdown.
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         async with httpx2.AsyncClient(
@@ -30,11 +34,13 @@ def create_app(
             headers=headers,
             transport=transport,
         ) as client:
+            # Store the client so request handlers can reuse its connection pool.
             app.state.github_client = client
             yield
 
     app = FastAPI(title="Public GitHub Gists API", lifespan=lifespan)
     app.state.settings = configured_settings
+    app.state.gists_cache = GistCache()
 
     @app.get("/{username}", response_model=list[dict[str, Any]])
     async def get_public_gists(
@@ -46,6 +52,19 @@ def create_app(
         page: Annotated[int, Query(ge=1)] = 1,
         per_page: Annotated[int, Query(ge=1, le=100)] = 30,
     ) -> list[dict[str, Any]]:
+        cache_key = (username, page, per_page)
+        cache: GistCache = request.app.state.gists_cache
+        if configured_settings.cache_ttl_seconds > 0:
+            cached_entry = cache.get(cache_key)
+            if cached_entry is not None:
+                expires_at, cached_gists = cached_entry
+                if expires_at > monotonic():
+                    # Mark this entry recently used so the least-recently-used entry is evicted first.
+                    cache.move_to_end(cache_key)
+                    return cached_gists
+                # Discard expired data before fetching a fresh response.
+                del cache[cache_key]
+
         url = f"{configured_settings.github_api_url}/users/{username}/gists"
         try:
             response = await request.app.state.github_client.get(
@@ -68,6 +87,13 @@ def create_app(
             raise HTTPException(status_code=502, detail="GitHub API returned invalid JSON") from exc
         if not isinstance(gists, list) or not all(isinstance(gist, dict) for gist in gists):
             raise HTTPException(status_code=502, detail="GitHub API returned an invalid Gists response")
+
+        if configured_settings.cache_ttl_seconds > 0:
+            cache[cache_key] = (monotonic() + configured_settings.cache_ttl_seconds, gists)
+            # Keep new entries at the recent end; overflow eviction removes from the opposite end.
+            cache.move_to_end(cache_key)
+            while len(cache) > configured_settings.cache_max_entries:
+                cache.popitem(last=False)
 
         return gists
 

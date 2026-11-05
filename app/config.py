@@ -9,6 +9,8 @@ class Settings:
     github_api_url: str
     github_token: str | None
     request_timeout_seconds: float
+    cache_ttl_seconds: float
+    cache_max_entries: int
     host: str
     port: int
 
@@ -28,12 +30,20 @@ class Settings:
 
         try:
             request_timeout_seconds = float(os.getenv("REQUEST_TIMEOUT_SECONDS", "5"))
+            cache_ttl_seconds = float(os.getenv("CACHE_TTL_SECONDS", "60"))
             port = int(os.getenv("PORT", "8080"))
+            cache_max_entries = int(os.getenv("CACHE_MAX_ENTRIES", "1000"))
         except ValueError as exc:
-            raise ValueError("REQUEST_TIMEOUT_SECONDS and PORT must be numeric") from exc
+            raise ValueError(
+                "REQUEST_TIMEOUT_SECONDS, CACHE_TTL_SECONDS, PORT, and CACHE_MAX_ENTRIES must be numeric"
+            ) from exc
 
         if not math.isfinite(request_timeout_seconds) or request_timeout_seconds <= 0:
             raise ValueError("REQUEST_TIMEOUT_SECONDS must be a positive finite number")
+        if not math.isfinite(cache_ttl_seconds) or cache_ttl_seconds < 0:
+            raise ValueError("CACHE_TTL_SECONDS must be a non-negative finite number")
+        if cache_max_entries < 1:
+            raise ValueError("CACHE_MAX_ENTRIES must be a positive integer")
         if not 1 <= port <= 65535:
             raise ValueError("PORT must be between 1 and 65535")
 
@@ -45,6 +55,8 @@ class Settings:
             github_api_url=github_api_url,
             github_token=os.getenv("GITHUB_TOKEN") or None,
             request_timeout_seconds=request_timeout_seconds,
+            cache_ttl_seconds=cache_ttl_seconds,
+            cache_max_entries=cache_max_entries,
             host=host,
             port=port,
         )
