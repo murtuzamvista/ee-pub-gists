@@ -96,10 +96,18 @@ uv run pytest
 
 Tests use a mocked GitHub API and do not require network access or credentials.
 
+### Continuous integration
+
+The GitHub Actions workflow runs on pushes, pull requests, and manual dispatch.
+It installs the locked dependencies, runs the test suite and dependency audit,
+then builds the Docker image after those checks pass. The image is validated
+locally by CI and is not published to a registry.
+
 ### Build and run the container
 
 The image uses Python 3.14 on Alpine Linux 3.23 and a pinned `uv` 0.13.7
-builder image.
+builder image. A multi-stage build keeps uv and build-time files out of the
+runtime image, and the runtime installs only Uvicorn's core dependencies.
 
 ```sh
 docker build -t public-gists-api .
