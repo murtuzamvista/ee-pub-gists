@@ -1,6 +1,11 @@
-FROM python:3.14-alpine3.23 AS python-base
+# check=skip=InvalidDefaultArgInFrom
+# Version build args are supplied from .tool-versions by scripts/build_image.py.
+ARG PYTHON_VERSION
+ARG UV_VERSION
 
-FROM ghcr.io/astral-sh/uv:0.13.7-alpine3.23 AS uv
+FROM python:${PYTHON_VERSION}-alpine3.23 AS python-base
+
+FROM ghcr.io/astral-sh/uv:${UV_VERSION}-alpine3.23 AS uv
 
 FROM python-base AS build
 

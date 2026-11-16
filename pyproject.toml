@@ -18,6 +18,11 @@ test = [
     "pytest>=8,<10",
 ]
 
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3,<5",
+]
+
 [tool.setuptools.packages.find]
 include = ["app*"]
 

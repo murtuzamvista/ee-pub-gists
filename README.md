@@ -36,10 +36,10 @@ If you have any questions on the below exercise, please do get in touch and weâ€
 - Package the web server API into a docker container that listens for requests on port `8080`. You do not need to publish the resulting container image in any container registry, but we are expecting the Dockerfile in the submission.
 - The solution may optionally provide other functionality (e.g. pagination, caching) but the above **must** be implemented.
 
-Best of luck,  
+Best of luck,
 Equal Experts
 __________________________________________
-[^1]: For example Go, Python or Ruby but not Bash or Powershell.  
+[^1]: For example Go, Python or Ruby but not Bash or Powershell.
 [^2]: https://docs.github.com/en/rest/gists/gists?apiVersion=2022-11-28
 
 ## Solution
@@ -62,11 +62,12 @@ restarts. Set `CACHE_TTL_SECONDS=0` to disable caching.
 
 ### Run locally
 
-Install [uv](https://docs.astral.sh/uv/), then sync the project and test
-dependencies:
+Install [uv](https://docs.astral.sh/uv/), then sync the project, test, and
+development dependencies:
 
 ```sh
-uv sync --extra test
+uv sync --locked --extra test --group dev
+uv run pre-commit install
 uv run python -m app.main
 ```
 
@@ -74,6 +75,15 @@ The project requires Python 3.11 or newer; uv can manage the interpreter if
 needed.
 The service listens on `http://localhost:8080`. Try
 `curl 'http://localhost:8080/octocat'`.
+
+The pre-commit hooks require Go to build and run Gitleaks. They scan staged
+changes for leaked secrets, check Python syntax and debug statements, validate
+YAML/JSON/TOML, check for merge-conflict markers and whitespace issues, and
+run the test suite. To run all checks manually across the repository:
+
+```sh
+uv run pre-commit run --all-files
+```
 
 Configuration is supplied through environment variables; no `.env` file is
 required:
@@ -99,18 +109,21 @@ Tests use a mocked GitHub API and do not require network access or credentials.
 ### Continuous integration
 
 The GitHub Actions workflow runs on pushes, pull requests, and manual dispatch.
-It installs the locked dependencies, runs the test suite and dependency audit,
-then builds the Docker image after those checks pass. The image is validated
-locally by CI and is not published to a registry.
+It scans the full Git history for leaked secrets, installs the locked
+dependencies, runs the test suite and dependency audit, then builds the Docker
+image after those checks pass. The image is validated locally by CI and is not
+published to a registry.
+Python and uv versions are defined once in `.tool-versions` and used by CI and
+the Docker build.
 
 ### Build and run the container
 
-The image uses Python 3.14 on Alpine Linux 3.23 and a pinned `uv` 0.13.7
-builder image. A multi-stage build keeps uv and build-time files out of the
+The image uses the Python and uv versions defined in `.tool-versions`, with
+Alpine Linux 3.23. A multi-stage build keeps uv and build-time files out of the
 runtime image, and the runtime installs only Uvicorn's core dependencies.
 
 ```sh
-docker build -t public-gists-api .
+uv run python scripts/build_image.py -t public-gists-api .
 docker run --rm -p 8080:8080 public-gists-api
 ```
 
