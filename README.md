@@ -125,6 +125,12 @@ with credentials that can publish to `murtaza1983/ee-pub-gists`. Configure
 Docker Hub to prevent overwriting `sha-*` and `v*` tags so both candidate and
 release references remain immutable; GitHub Actions uses these names but cannot
 enforce registry tag immutability itself.
+
+On a successful SemVer release-tag push, the workflow also updates the QA
+overlay in `murtuzamvista/ee-pub-gists-gitops` to use that `vMAJOR.MINOR.PATCH`
+image tag. Configure the `GITOPS_TOKEN` secret with a fine-grained token (or
+GitHub App token) that has **Contents: read and write** access to that GitOps
+repository. Production remains pinned to its independently approved image tag.
 Python and uv versions are defined once in `.tool-versions` and used by CI and
 the Docker build.
 
