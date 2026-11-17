@@ -35,11 +35,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Gitleaks is installed with Go, so provision the pinned Go toolchain first.
+      # Gitleaks is installed with Go; disable caching because this repo has no go.mod.
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.25"
+          cache: false
 
       # Pin the scanner version to keep secret-detection behavior reproducible.
       - name: Install Gitleaks
