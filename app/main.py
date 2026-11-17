@@ -84,7 +84,7 @@ def create_app(
         try:
             gists = response.json()
         except ValueError as exc:
-            raise HTTPException(status_code=502, detail="GitHub API returned invalid JSON") from exc
+            raise HTTPException(status_code=502, detail="GitHub API returned invalid JSON. Please check the API documentation.") from exc
         if not isinstance(gists, list) or not all(isinstance(gist, dict) for gist in gists):
             raise HTTPException(status_code=502, detail="GitHub API returned an invalid Gists response")
 
