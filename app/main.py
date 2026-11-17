@@ -5,7 +5,7 @@ from typing import Annotated, Any
 
 import httpx2
 import uvicorn
-from fastapi import FastAPI, HTTPException, Path, Query, Request
+from fastapi import FastAPI, HTTPException, Path, Query, Request, Response
 
 from app.config import Settings
 
@@ -41,6 +41,17 @@ def create_app(
     app = FastAPI(title="Public GitHub Gists API", lifespan=lifespan)
     app.state.settings = configured_settings
     app.state.gists_cache = GistCache()
+
+    @app.get("/health/live", include_in_schema=False)
+    async def liveness() -> Response:
+        return Response(status_code=200)
+
+    @app.get("/health/ready", include_in_schema=False)
+    async def readiness(request: Request) -> Response:
+        github_client: httpx2.AsyncClient | None = getattr(request.app.state, "github_client", None)
+        if github_client is None or github_client.is_closed:
+            return Response(status_code=503)
+        return Response(status_code=200)
 
     @app.get("/{username}", response_model=list[dict[str, Any]])
     async def get_public_gists(

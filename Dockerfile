@@ -1,3 +1,5 @@
+# The build helper always supplies these version args; suppress the check for unset
+# defaults because Docker cannot resolve the FROM image until those args are provided.
 # check=skip=InvalidDefaultArgInFrom
 # Version build args are supplied from .tool-versions by scripts/build_image.py.
 ARG PYTHON_VERSION

@@ -23,6 +23,22 @@ def make_settings(
     )
 
 
+# Health checks report application lifecycle state without contacting GitHub.
+def test_health_checks_do_not_call_github() -> None:
+    requests: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        return httpx2.Response(200, json=[])
+
+    app = create_app(make_settings(), transport=httpx2.MockTransport(handler))
+    with TestClient(app) as client:
+        assert client.get("/health/live").status_code == 200
+        assert client.get("/health/ready").status_code == 200
+
+    assert requests == []
+
+
 # Verifies the returned Gists and the username, pagination, and API-version sent to GitHub.
 def test_returns_gists_and_forwards_pagination() -> None:
     gist_list = [{"id": "abc123", "description": "A public gist"}]
