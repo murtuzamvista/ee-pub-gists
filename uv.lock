@@ -74,6 +74,38 @@ wheels = [
 ]
 
 [[package]]
+name = "ee-pub-gists"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "fastapi" },
+    { name = "httpx2" },
+    { name = "uvicorn" },
+]
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pre-commit" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "httpx2", specifier = ">=2.16.0" },
+    { name = "pytest", marker = "extra == 'test'", specifier = ">=8,<10" },
+    { name = "uvicorn", specifier = ">=0.30,<1" },
+]
+provides-extras = ["test"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pre-commit", specifier = ">=4.3,<5" }]
+
+[[package]]
 name = "fastapi"
 version = "0.162.0"
 source = { registry = "https://pypi.org/simple" }
@@ -237,38 +269,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/3a/c3/6965c2690ddce885e
 wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/83/ce0a196e4f7b20b11ce3aa1fc72fb973f64b7628d51c1b8aebad37fb7f81/pre_commit-4.7.0-py2.py3-none-any.whl", hash = "sha256:2e229038ad3656081b70c27913157e4b636ef306f643f024a8a8e3f0f7b2f877", size = 226261, upload-time = "2026-10-12T20:45:38.858Z" },
 ]
-
-[[package]]
-name = "public-gists-api"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "fastapi" },
-    { name = "httpx2" },
-    { name = "uvicorn" },
-]
-
-[package.optional-dependencies]
-test = [
-    { name = "pytest" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pre-commit" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "fastapi", specifier = ">=0.115,<1" },
-    { name = "httpx2", specifier = ">=2.16.0" },
-    { name = "pytest", marker = "extra == 'test'", specifier = ">=8,<10" },
-    { name = "uvicorn", specifier = ">=0.30,<1" },
-]
-provides-extras = ["test"]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pre-commit", specifier = ">=4.3,<5" }]
 
 [[package]]
 name = "pydantic"

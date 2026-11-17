@@ -21,7 +21,7 @@ def create_app(
     headers = {
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "public-gists-api",
+        "User-Agent": "ee-pub-gists",
     }
     if configured_settings.github_token:
         headers["Authorization"] = f"Bearer {configured_settings.github_token}"

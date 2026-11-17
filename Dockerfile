@@ -36,6 +36,12 @@ WORKDIR /app
 
 COPY --from=build /app/.venv /app/.venv
 
+# The application runs from its virtual environment and does not need system pip.
+RUN rm -rf /usr/local/lib/python*/site-packages/pip \
+    /usr/local/lib/python*/site-packages/pip-*.dist-info \
+    /usr/local/lib/python*/ensurepip \
+    /usr/local/bin/pip*
+
 USER 10001:10001
 
 EXPOSE 8080

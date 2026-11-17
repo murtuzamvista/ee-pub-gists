@@ -1,9 +1,9 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=78.1.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "public-gists-api"
+name = "ee-pub-gists"
 version = "0.1.0"
 description = "A small API that returns public GitHub Gists for a user"
 requires-python = ">=3.11"

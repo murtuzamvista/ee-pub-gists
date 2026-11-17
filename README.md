@@ -108,11 +108,23 @@ Tests use a mocked GitHub API and do not require network access or credentials.
 
 ### Continuous integration
 
-The GitHub Actions workflow runs on pushes, pull requests, and manual dispatch.
-It scans the full Git history for leaked secrets, installs the locked
-dependencies, runs the test suite and dependency audit, then builds the Docker
-image after those checks pass. The image is validated locally by CI and is not
-published to a registry.
+The GitHub Actions workflow runs secret scanning, tests, and dependency audits
+on pushes, pull requests, and manual dispatches. On pushes to `develop` and
+`release/*`, it builds one image, scans it with Trivy, and publishes it to
+Docker Hub only if no HIGH or CRITICAL vulnerabilities are found. Candidate
+images use the immutable-by-convention tag `sha-<commit>`.
+
+After QA approves a release-branch image, create a Git tag such as `v1.2.3` on
+that exact commit. The workflow aliases the already-published SHA image to the
+SemVer tag without rebuilding it, so environments can promote the same image
+and production can roll back to an earlier image tag or digest. Do not create
+release tags until the corresponding `sha-<commit>` image exists.
+
+Configure the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
+with credentials that can publish to `murtaza1983/ee-pub-gists`. Configure
+Docker Hub to prevent overwriting `sha-*` and `v*` tags so both candidate and
+release references remain immutable; GitHub Actions uses these names but cannot
+enforce registry tag immutability itself.
 Python and uv versions are defined once in `.tool-versions` and used by CI and
 the Docker build.
 
@@ -123,12 +135,12 @@ Alpine Linux 3.23. A multi-stage build keeps uv and build-time files out of the
 runtime image, and the runtime installs only Uvicorn's core dependencies.
 
 ```sh
-uv run python scripts/build_image.py -t public-gists-api .
-docker run --rm -p 8080:8080 public-gists-api
+uv run python scripts/build_image.py -t ee-pub-gists .
+docker run --rm -p 8080:8080 ee-pub-gists
 ```
 
 To pass an optional GitHub token without adding it to the image:
 
 ```sh
-docker run --rm -p 8080:8080 -e GITHUB_TOKEN="$GITHUB_TOKEN" public-gists-api
+docker run --rm -p 8080:8080 -e GITHUB_TOKEN="$GITHUB_TOKEN" ee-pub-gists
 ```
