@@ -27,7 +27,7 @@ jobs:
   # are detected as well as secrets in the latest revision.
   secret-scan:
     name: Scan Git history for secrets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # Full history is required for the all-history Gitleaks scan.
       - name: Check out full repository history
@@ -54,7 +54,7 @@ jobs:
   # container image can be published.
   test-and-audit:
     name: Tests and dependency audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Share the selected Python version with the Docker build job.
     outputs:
       python-version: ${{ steps.setup-uv.outputs.python-version }}
@@ -98,7 +98,7 @@ jobs:
     # Only develop and release branches produce candidate images; PRs and other
     # branches still get the validation jobs above.
     if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/'))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # Check out the commit whose image will be built and scanned.
       - name: Check out repository
@@ -151,7 +151,7 @@ jobs:
     needs: [secret-scan, test-and-audit]
     # Run for version-tag pushes; the first step rejects tags outside stable SemVer.
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # Accept only stable vMAJOR.MINOR.PATCH tags, excluding leading-zero components.
       - name: Validate release tag
