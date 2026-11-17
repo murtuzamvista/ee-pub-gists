@@ -1,4 +1,4 @@
-name: CI
+name: CI and Release Workflow
 
 # Run validation for every change; image publication jobs below further restrict
 # themselves to eligible branch and tag pushes.
