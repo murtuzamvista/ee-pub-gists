@@ -20,6 +20,7 @@ concurrency:
 env:
   IMAGE_NAME: murtaza1983/ee-pub-gists
   LOCAL_IMAGE_NAME: ee-pub-gists
+  IMAGE_TAG: sha-${{ github.sha }}
 
 jobs:
   # Scan all reachable Git history so secrets accidentally committed earlier
@@ -97,9 +98,6 @@ jobs:
     # branches still get the validation jobs above.
     if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/'))
     runs-on: ubuntu-latest
-    # The commit-derived tag uniquely identifies this build's source revision.
-    env:
-      IMAGE_TAG: sha-${{ github.sha }}
     steps:
       # Check out the commit whose image will be built and scanned.
       - name: Check out repository
@@ -153,9 +151,6 @@ jobs:
     # Run for version-tag pushes; the first step rejects tags outside stable SemVer.
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    # A Git tag resolves to the same commit SHA used when its candidate image was built.
-    env:
-      IMAGE_TAG: sha-${{ github.sha }}
     steps:
       # Accept only stable vMAJOR.MINOR.PATCH tags, excluding leading-zero components.
       - name: Validate release tag
