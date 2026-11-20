@@ -108,17 +108,18 @@ Tests use a mocked GitHub API and do not require network access or credentials.
 
 ### Continuous integration
 
-The GitHub Actions workflow runs secret scanning, tests, and dependency audits
-on pushes, pull requests, and manual dispatches. On pushes to `develop` and
-`release/*`, it builds one image, scans it with Trivy, and publishes it to
-Docker Hub only if no HIGH or CRITICAL vulnerabilities are found. Candidate
-images use the immutable-by-convention tag `sha-<commit>`.
+The dedicated dev pipeline runs secret scanning, tests, and dependency audits
+on pushes to `develop`, then builds the image once, scans it with Trivy, and
+publishes it to Docker Hub only if no HIGH or CRITICAL vulnerabilities are
+found. It then updates `overlays/dev/kustomization.yaml` in the
+`murtuzamvista/ee-pub-gists-gitops` repository to the immutable-by-convention
+`sha-<commit>` tag. QA and production promotion will be handled by separate
+workflows.
 
-After QA approves a release-branch image, create a Git tag such as `v1.2.3` on
-that exact commit. The workflow aliases the already-published SHA image to the
-SemVer tag without rebuilding it, so environments can promote the same image
-and production can roll back to an earlier image tag or digest. Do not create
-release tags until the corresponding `sha-<commit>` image exists.
+The former CI and release workflow is manual-only (`workflow_dispatch`) while
+the new pipelines are introduced. It no longer runs automatically on pushes,
+pull requests, or release-tag creation; its old release-tag publishing steps
+are inactive until a dedicated release workflow is added.
 
 Configure the repository secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
 with credentials that can publish to `murtaza1983/ee-pub-gists`. Configure
@@ -126,11 +127,10 @@ Docker Hub to prevent overwriting `sha-*` and `v*` tags so both candidate and
 release references remain immutable; GitHub Actions uses these names but cannot
 enforce registry tag immutability itself.
 
-On a successful SemVer release-tag push, the workflow also updates the QA
-overlay in `murtuzamvista/ee-pub-gists-gitops` to use that `vMAJOR.MINOR.PATCH`
-image tag. Configure the `GITOPS_TOKEN` secret with a fine-grained token (or
-GitHub App token) that has **Contents: read and write** access to that GitOps
-repository. Production remains pinned to its independently approved image tag.
+Configure the `GITOPS_TOKEN` Actions secret with a fine-grained token (or GitHub
+App token) that has **Contents: read and write** access to the
+`murtuzamvista/ee-pub-gists-gitops` repository. The dev pipeline uses this
+credential only after the image has passed CI and vulnerability scanning.
 Python and uv versions are defined once in `.tool-versions` and used by CI and
 the Docker build.
 
