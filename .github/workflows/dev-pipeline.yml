@@ -1,0 +1,157 @@
+name: Dev Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: murtaza1983/ee-pub-gists
+  LOCAL_IMAGE_NAME: ee-pub-gists
+  IMAGE_TAG: sha-${{ github.sha }}
+
+jobs:
+  secret-scan:
+    name: Scan Git history for secrets
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out full repository history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.25"
+          cache: false
+
+      - name: Install Gitleaks
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+
+      - name: Scan Git history
+        run: gitleaks git --redact --log-opts=--all .
+
+  test-and-audit:
+    name: Tests and dependency audit
+    runs-on: ubuntu-24.04
+    outputs:
+      python-version: ${{ steps.setup-uv.outputs.python-version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up uv
+        id: setup-uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: .tool-versions
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ steps.setup-uv.outputs.python-version }}
+
+      - name: Install locked dependencies
+        run: uv sync --locked --extra test
+
+      - name: Run tests
+        run: uv run --locked --extra test pytest
+
+      - name: Audit dependencies
+        run: uv audit --locked
+
+  build-image:
+    name: Build, scan, and publish Docker image
+    needs: [secret-scan, test-and-audit]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ needs.test-and-audit.outputs.python-version }}
+
+      - name: Build image
+        run: python scripts/build_image.py -t "$LOCAL_IMAGE_NAME:${GITHUB_SHA}" .
+
+      - name: Scan image for HIGH and CRITICAL vulnerabilities
+        run: >-
+          docker run --rm
+          -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.76.2
+          image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress
+          "$LOCAL_IMAGE_NAME:${GITHUB_SHA}"
+
+      - name: Log in to Docker Hub
+        id: docker-login
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+
+      - name: Publish SHA-tagged image
+        run: |
+          docker tag "$LOCAL_IMAGE_NAME:${GITHUB_SHA}" "$IMAGE_NAME:$IMAGE_TAG"
+          docker push "$IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Log out of Docker Hub
+        if: always() && steps.docker-login.outcome == 'success'
+        run: docker logout
+
+  update-dev-gitops-image:
+    name: Update dev image in GitOps
+    needs: build-image
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out GitOps repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: murtuzamvista/ee-pub-gists-gitops
+          ref: main
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+
+      - name: Set dev image tag
+        working-directory: gitops
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          kustomization = Path("overlays/dev/kustomization.yaml")
+          lines = kustomization.read_text().splitlines(keepends=True)
+          tag_lines = [index for index, line in enumerate(lines) if line.lstrip().startswith("newTag:")]
+          if len(tag_lines) != 1:
+              raise SystemExit(f"Expected one dev image newTag in {kustomization}, found {len(tag_lines)}")
+
+          index = tag_lines[0]
+          indentation = lines[index][:len(lines[index]) - len(lines[index].lstrip())]
+          lines[index] = f"{indentation}newTag: {os.environ['IMAGE_TAG']}\n"
+          kustomization.write_text("".join(lines))
+          PY
+
+          git diff --check
+          if git diff --quiet -- overlays/dev/kustomization.yaml; then
+            echo "Dev already uses $IMAGE_TAG; no GitOps commit is needed."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add overlays/dev/kustomization.yaml
+          git commit -m "Deploy $IMAGE_TAG to dev"
+          git push origin main
